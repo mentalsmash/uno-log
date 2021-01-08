@@ -21,7 +21,7 @@ with open("README.md", "r") as readme_f:
 setuptools.setup(
     name="uno-log",
     version="0.1.0",
-    author="Andrea Sorbini",
+    author="mentalsmash.org",
     author_email="support@mentalsmash.org",
     description="uno's logging library",
     license="License :: OSI Approved :: Apache Software License",
