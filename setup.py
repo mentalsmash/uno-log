@@ -20,7 +20,7 @@ with open("README.md", "r") as readme_f:
 
 setuptools.setup(
     name="uno-log",
-    version="0.1.0",
+    version="0.1.1",
     author="mentalsmash.org",
     author_email="support@mentalsmash.org",
     description="uno's logging library",
