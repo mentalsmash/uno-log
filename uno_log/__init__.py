@@ -20,6 +20,7 @@ import numbers
 import sys
 import threading
 import pathlib
+import re
 
 from termcolor import colored
 
