@@ -16,8 +16,8 @@
 
 DIST_DIR := dist
 BUILD_DIR := build
-EGG_DIR := yaml_serde.egg-info
-PKG_DIR := yaml_serde
+EGG_DIR := uno_log.egg-info
+PKG_DIR := uno_log
 
 VERSION = $(shell cat VERSION)
 
