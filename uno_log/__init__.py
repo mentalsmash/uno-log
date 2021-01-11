@@ -113,11 +113,21 @@ def color_enabled():
         global _LOGGER_NOCOLOR
         return not _LOGGER_NOCOLOR
 
-def logger(context, no_prefix=False):
+def logger(context,
+        no_prefix=False,
+        no_context=False,
+        no_color=False,
+        prefix=None,
+        cls=None):
+    if cls is not None and not issubclass(cls,Logger):
+        raise ValueError("invalid logger class", cls)
+    elif cls is None:
+        cls = Logger
     global _LOGGER_LOCK
     with _LOGGER_LOCK:
         global _LOGGERS
-        return _LOGGERS.get(context, _UvnLogger(context, no_prefix=no_prefix))
+        return _LOGGERS.get(context, cls(context, prefix=prefix,
+            no_prefix=no_prefix, no_context=no_context, no_color=no_color))
 
 def output_file(path):
     global _LOGGER_LOCK
@@ -137,7 +147,8 @@ def global_prefix(pfx):
 
 def _colorize(lvl, line):
     if lvl >= level.trace:
-        return colored(line, "white")
+        # return colored(line, "white")
+        return line
     elif lvl >= level.debug:
         return colored(line, "magenta")
     elif lvl >= level.activity:
@@ -161,7 +172,7 @@ def _emit_default(logger, context, lvl, line, **kwargs):
         if outfile:
             print(line, file=outfile)
             outfile.flush()
-        if not _LOGGER_NOCOLOR:
+        if not _LOGGER_NOCOLOR and not logger.no_color:
             line = _colorize(lvl, line)
         print(line, file=file)
         file.flush()
@@ -172,54 +183,77 @@ def _format_default(logger, context, lvl, fmt, *args, **kwargs):
     with _LOGGER_LOCK:
         glb_prefix = _LOGGER_PREFIX
     fmt_args = []
-    if not logger.no_prefix:
+    noprefix = logger.no_prefix or kwargs.get("no_prefix")
+    if not noprefix:
         if glb_prefix:
-            fmt_args.extend(["[{}]"])
-        fmt_args.extend(["[{}]", "[{}]"])
+            fmt_args.append("[{}]")
+        if logger.custom_prefix:
+            fmt_args.append("{}")
+        else:
+            fmt_args.append("[{}]")
+        if not logger.no_context:
+            fmt_args.append("[{}]")
         if not fmt.startswith("["):
             fmt_args.append(" ")
     fmt_args.append(fmt)
     fmt = "".join(fmt_args)
 
     fmt_args = []
-    if not logger.no_prefix:
+    if not noprefix:
         if glb_prefix:
-            fmt_args.extend([glb_prefix])
-        fmt_args.extend([lvl.name[0], context])
+            fmt_args.append(glb_prefix)
+        if logger.custom_prefix:
+            fmt_args.append(logger.custom_prefix)
+        else:
+            fmt_args.append(lvl.name[0])
+        if not logger.no_context:
+            fmt_args.append(context)
     fmt_args.extend(args)
     
     return fmt.format(*fmt_args)
 
-class _UvnLogger:
+class Logger:
     global_prefix = None
 
     def __init__(
         self,
         context,
-        no_prefix=False,
+        prefix=None,
         format=_format_default,
-        emit=_emit_default):
+        emit=_emit_default,
+        no_prefix=False,
+        no_context=False,
+        no_color=False):
         if not context:
             raise LoggerError("invalid logger context")
         self.context = context
         self.format = format
         self.emit = emit
         self.no_prefix = no_prefix
+        self.no_context = no_context
+        self.no_color = no_color
+        self.custom_prefix = prefix
 
     def _log(self, lvl, *args, **kwargs):
-        if not log_enabled(self.context, lvl):
+        if "context" in kwargs:
+            context = kwargs["context"]
+            del kwargs["context"]
+        else:
+            context = self.context
+
+        if not log_enabled(context, lvl) and not kwargs.get("force"):
             return
         if len(args) == 1:
-            line = self.format(self, self.context, lvl, "{}", *args, **kwargs)
+            line = self.format(self, context, lvl, "{}", *args, **kwargs)
         else:
-            line = self.format(self, self.context, lvl, args[0], *args[1:], **kwargs)
+            line = self.format(self, context, lvl, args[0], *args[1:], **kwargs)
         
         global _LOGGER_LOCK
         global _LOGGER_FILE
         with _LOGGER_LOCK:
             if _LOGGER_FILE:
                 kwargs["outfile"] = _LOGGER_FILE
-            self.emit(self, self.context, lvl, line, **kwargs)
+            self.emit(self, context, lvl, line, **kwargs)
 
     def exception(self, e):
         # if log_enabled(self.context, level.debug):
